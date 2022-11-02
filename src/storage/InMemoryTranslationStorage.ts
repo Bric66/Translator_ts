@@ -5,11 +5,8 @@ export type SavedTranslation = {
   language: string;
 };
 
-export class TranslationStorage {
-  save(
-    userId: string,
-    savedTranslation: SavedTranslation | SavedTranslation[]
-  ) {
+export class InMemoryTranslationStorage {
+  save(userId: string, savedTranslation: SavedTranslation[]) {
     db.set(userId, savedTranslation);
   }
 
