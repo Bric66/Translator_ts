@@ -3,15 +3,14 @@ const router = express.Router();
 import { TranslationGateway } from "../gateways/translationGateway";
 import { authorization } from "../middlewares/authorizationMiddleware";
 import {
-  SavedTranslation,
   InMemoryTranslationStorage,
+  Translation,
 } from "../storage/InMemoryTranslationStorage";
 import { AuthentifiedRequest } from "../types/AuthentifiedRequest";
 
 router.use(authorization);
-
-const translationGateway = new TranslationGateway();
-const translationStorage = new InMemoryTranslationStorage();
+const inMemoryTranslationStorage = new InMemoryTranslationStorage();
+const translationGateway = new TranslationGateway(inMemoryTranslationStorage);
 
 router.post("/", async (req: AuthentifiedRequest, res) => {
   try {
@@ -35,20 +34,23 @@ router.post("/", async (req: AuthentifiedRequest, res) => {
       body.language
     );
 
-    const savedTranslation: SavedTranslation = {
+    const savedTranslation: Translation = {
       originalText: body.text,
       translation: translatedText,
       language: body.language,
     };
 
-    const hasAlreadySavedTranslation = translationStorage.getByUserId(
+    const hasAlreadySavedTranslation = inMemoryTranslationStorage.getByUserId(
       req.user.userId
     );
     if (hasAlreadySavedTranslation) {
       hasAlreadySavedTranslation.push(savedTranslation);
-      translationStorage.save(req.user.userId, hasAlreadySavedTranslation);
+      inMemoryTranslationStorage.save(
+        req.user.userId,
+        hasAlreadySavedTranslation
+      );
     } else {
-      translationStorage.save(req.user.userId, [savedTranslation]);
+      inMemoryTranslationStorage.save(req.user.userId, [savedTranslation]);
     }
     return res.send({
       originalText: body.text,
