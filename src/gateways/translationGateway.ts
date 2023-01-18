@@ -1,9 +1,15 @@
-import axios from "axios";
-import { db } from "../storage/TranslationStorage";
 const apiKey = process.env.API_KEY;
 
+import axios from "axios";
+import { TranslationStorage } from "../interface/TranslationStorage";
+
 export class TranslationGateway {
-  async translate(text: string, targetlanguage: string) {
+  translationStorage: TranslationStorage;
+  constructor(translationStorage: TranslationStorage) {
+    this.translationStorage = translationStorage;
+  }
+
+  async translate(text: string, targetlanguage: string): Promise<string> {
     const encodedParams = new URLSearchParams();
     encodedParams.append("q", text);
     encodedParams.append("target", targetlanguage);
@@ -21,11 +27,12 @@ export class TranslationGateway {
     };
 
     const response = await axios.request(options);
-    return response.data;
+    return response.data.data.translations[0].translatedText;
   }
 
   search(userId: string, originalText: string) {
-    const translations = db.get(userId);
+    const translations = this.translationStorage.getByUserId(userId);
+
     if (translations) {
       const found = translations.find(
         (element) => element.originalText === originalText

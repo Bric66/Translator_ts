@@ -1,17 +1,16 @@
 import express from "express";
 const router = express.Router();
-import { TranslationGateway } from "../function/translateGateway";
+import { TranslationGateway } from "../gateways/translationGateway";
 import { authorization } from "../middlewares/authorizationMiddleware";
 import {
-  SavedTranslation,
-  TranslationStorage,
-} from "../storage/TranslationStorage";
+  InMemoryTranslationStorage,
+  Translation,
+} from "../storage/InMemoryTranslationStorage";
 import { AuthentifiedRequest } from "../types/AuthentifiedRequest";
 
 router.use(authorization);
-
-const translationGateway = new TranslationGateway();
-const translationStorage = new TranslationStorage();
+const inMemoryTranslationStorage = new InMemoryTranslationStorage();
+const translationGateway = new TranslationGateway(inMemoryTranslationStorage);
 
 router.post("/", async (req: AuthentifiedRequest, res) => {
   try {
@@ -20,36 +19,43 @@ router.post("/", async (req: AuthentifiedRequest, res) => {
       language: req.body.language,
     };
     const idUser = req.user.userId;
-    const isAlreadyTranslated = translationGateway.search(idUser, body.text);
+    const isAlreadyTranslated = await translationGateway.search(
+      idUser,
+      body.text
+    );
     if (isAlreadyTranslated) {
       return res.send({
         translatedText: isAlreadyTranslated.translation,
       });
     }
-    const translation = await translationGateway.translate(
+
+    const translatedText = await translationGateway.translate(
       body.text,
       body.language
     );
 
-    const translatedText = translation.data.translations[0].translatedText;
-
-    const savedTranslation: SavedTranslation = {
+    const savedTranslation: Translation = {
       originalText: body.text,
       translation: translatedText,
       language: body.language,
     };
 
-    const hasAlreadySavedTranslation = translationStorage.getByUserId(
+    const hasAlreadySavedTranslation = inMemoryTranslationStorage.getByUserId(
       req.user.userId
     );
     if (hasAlreadySavedTranslation) {
       hasAlreadySavedTranslation.push(savedTranslation);
-      translationStorage.save(req.user.userId, hasAlreadySavedTranslation);
+      inMemoryTranslationStorage.save(
+        req.user.userId,
+        hasAlreadySavedTranslation
+      );
     } else {
-      translationStorage.save(req.user.userId, [savedTranslation]);
+      inMemoryTranslationStorage.save(req.user.userId, [savedTranslation]);
     }
     return res.send({
-      translatedText: translatedText,
+      originalText: body.text,
+      translation: translatedText,
+      language: body.language,
     });
   } catch (error) {
     console.log(error.response.data.error.details[0].fieldViolations);
